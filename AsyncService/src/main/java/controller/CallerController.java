@@ -3,6 +3,9 @@ package controller;
 import adapter.CallerDtoAdapter;
 import dto.CallerDto;
 import dto.TimeConsumingDto;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -20,6 +23,7 @@ import org.springframework.web.context.request.async.DeferredResult;
 @RestController
 public class CallerController {
 
+  private static final Logger LOGGER = LoggerFactory.getLogger(CallerController.class);
   private static final String TIME_CONSUMING_SERVICE_URL = "http://localhost:9001/timeConsumer?consume={consume}";
 
   @Autowired
@@ -30,20 +34,26 @@ public class CallerController {
 
   @RequestMapping(value = "/caller", method = RequestMethod.GET, produces = "application/json")
   public ResponseEntity<CallerDto> caller(@RequestParam(defaultValue = "0") int consume) {
+    LOGGER.info("Request sent to service.");
     ResponseEntity<TimeConsumingDto> timeConsumingResponse =
         restTemplate.getForEntity(TIME_CONSUMING_SERVICE_URL, TimeConsumingDto.class, consume);
 
+
+    LOGGER.info("Response returned, converting DTO.");
     TimeConsumingDto timeConsumingDto = timeConsumingResponse.getBody();
     CallerDto callerDto = new CallerDto(timeConsumingDto.getMessage(), timeConsumingDto.getValue());
 
-    return new ResponseEntity<CallerDto>(callerDto, HttpStatus.OK);
+    LOGGER.info("Exiting.");
+    return new ResponseEntity<>(callerDto, HttpStatus.OK);
   }
 
   @RequestMapping(value = "/asyncCaller", method = RequestMethod.GET, produces = "application/json")
   public DeferredResult<ResponseEntity<CallerDto>> asyncCaller(@RequestParam(defaultValue = "0") int consume) {
+    LOGGER.info("Async request sent to service.");
     ListenableFuture<ResponseEntity<TimeConsumingDto>> asyncResponse =
         asyncRestTemplate.getForEntity(TIME_CONSUMING_SERVICE_URL, TimeConsumingDto.class, consume);
 
+    LOGGER.info("Async response returned, converting DTO.");
     DeferredResult<ResponseEntity<CallerDto>> deferredResult = new DeferredResult<>();
     ListenableFuture<CallerDto> callerDto = new CallerDtoAdapter(asyncResponse);
 
@@ -52,11 +62,13 @@ public class CallerController {
 
           @Override
           public void onSuccess(CallerDto result) {
+            LOGGER.info("Callback success.");
             deferredResult.setResult(new ResponseEntity<>(result, HttpStatus.OK));
           }
 
           @Override
           public void onFailure(Throwable ex) {
+            LOGGER.info("Callback failed.");
             deferredResult.setResult(new ResponseEntity<>(HttpStatus.SERVICE_UNAVAILABLE));
           }
         });
@@ -67,16 +79,20 @@ public class CallerController {
      * exception -> deferredResult.setResult(new ResponseEntity<>(HttpStatus.SERVICE_UNAVAILABLE)));
      */
 
+    LOGGER.info("Exiting.");
     return deferredResult;
   }
 
   @RequestMapping(value = "/asyncCallerSimpler", method = RequestMethod.GET, produces = "application/json")
   public ListenableFuture<CallerDto> asyncCallerSimpler(@RequestParam(defaultValue = "0") int consume) {
+    LOGGER.info("Async request sent to service.");
     ListenableFuture<ResponseEntity<TimeConsumingDto>> asyncResponse =
         asyncRestTemplate.getForEntity(TIME_CONSUMING_SERVICE_URL, TimeConsumingDto.class, consume);
 
+    LOGGER.info("Async response returned, converting DTO.");
     ListenableFuture<CallerDto> callerDto = new CallerDtoAdapter(asyncResponse);
 
+    LOGGER.info("Exiting.");
     return callerDto;
   }
 
